@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Unidos por Ramón - Campaña de Recaudación</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+    <!-- Chosen Palette: Warm Harmony -->
+    <!-- Application Structure Plan: The SPA is designed as a top-to-bottom narrative dashboard. It starts with the main goal (Hero section with a progress bar), tells Ramón's story, presents clear 'How to Help' options in an interactive tabbed format (Donations, Events, Raffles) to avoid overwhelming users, shows transparent progress with a dynamic chart, includes a detailed cronograma for transparency, a projected budget section for financial clarity, and finishes with a gallery and sharing options to foster community. This structure was chosen to guide the user emotionally and logically, from understanding the need to taking action and seeing their impact, maximizing engagement and contributions, and providing a comprehensive overview of the campaign's timeline and financial planning. -->
+    <!-- Visualization & Content Choices: 
+        - Report Info: Fundraising goal of $3,000. -> Goal: Inform & Motivate. -> Viz: Dynamic progress bar (HTML/CSS) and a Donut Chart (Chart.js). -> Interaction: The chart animates, and text updates with the current amount. -> Justification: Provides immediate, powerful visual feedback on the campaign's success.
+        - Report Info: Different ways to help (donate, buy food, buy raffle tickets). -> Goal: Organize & Clarify. -> Viz: Tabbed interface with cards for each item. -> Interaction: Clicking tabs reveals specific content, reducing cognitive load. -> Justification: Structures complex information cleanly, making it easy for users to find how they want to contribute.
+        - Report Info: Payment details (Zelle, Pago Móvil, Venmo). -> Goal: Facilitate Action. -> Viz: Text blocks with "Copy" buttons. -> Interaction: Clicking a button copies the payment info to the clipboard. -> Justification: Removes friction and potential for error, increasing donation conversion.
+        - Report Info: Schedule of events and raffles. -> Goal: Announce & Schedule. -> Viz: Chronological cards within the 'Events' and 'Raffles' tabs, and a dedicated Cronograma section. -> Interaction: None, just clear presentation of dates and activities. -> Justification: Creates a clear timeline and builds anticipation, providing all necessary planning information at a glance.
+        - Report Info: Estimated Budget. -> Goal: Provide Financial Transparency. -> Viz: Detailed table. -> Interaction: None. -> Justification: Offers a clear breakdown of where funds are projected to come from, enhancing trust and clarity.
+        - New Feature: LLM for message and diffusion ideas. -> Goal: Enhance campaign outreach and support. -> Viz: Textarea for input, button for generation, and display area for output. -> Interaction: User types a request, clicks a button, and the LLM generates a response. -> Justification: Provides creative assistance for communication, leveraging AI to help with messaging and content creation.
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .tab-active {
+            border-bottom-color: #166534; /* green-800 */
+            color: #166534;
+            font-weight: 600;
+        }
+        .tab-inactive {
+            border-bottom-color: transparent;
+            color: #44403c; /* stone-700 */
+        }
+        .timeline-item::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 12px;
+            height: 12px;
+            background-color: #16a34a; /* green-600 */
+            border-radius: 50%;
+            transform: translateX(-50%);
+            border: 2px solid #fff;
+        }
+        .loading-spinner {
+            border: 4px solid rgba(0, 0, 0, 0.1);
+            border-left-color: #10B981; /* Tailwind green-500 */
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            vertical-align: middle;
+            margin-right: 8px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-stone-50 text-stone-800">
+
+    <div class="container mx-auto p-4 sm:p-6 lg:p-8 max-w-5xl">
+
+        <!-- Hero Section -->
+        <header class="text-center py-8">
+            <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.19 PM(2).jpeg-5cb9b4e1-14f3-4948-b40f-f9186151e426" alt="Foto de Ramón Añez" class="w-32 h-32 rounded-full mx-auto mb-4 object-cover border-4 border-white shadow-lg">
+            <h1 class="text-4xl md:text-5xl font-bold text-green-800">Unidos por Ramón</h1>
+            <p class="mt-2 text-lg text-stone-600">Campaña de recaudación para sus quimioterapias</p>
+            
+            <div class="mt-8 px-4">
+                <div class="flex justify-between items-center mb-1 text-stone-600 font-semibold">
+                    <span>Recaudado: <span id="current-amount-text" class="text-green-800">$0</span></span>
+                    <span>Meta: <span id="goal-amount-text" class="text-green-800">$3,000</span></span>
+                </div>
+                <div class="w-full bg-stone-200 rounded-full h-4">
+                    <div id="progress-bar" class="bg-green-600 h-4 rounded-full transition-all duration-1000 ease-out" style="width: 0%"></div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Story Section -->
+        <section id="story" class="my-12 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-4 text-green-800">Nuestra Misión</h2>
+            <p class="text-stone-700 text-center max-w-3xl mx-auto leading-relaxed">
+                Nos hemos unido para apoyar a nuestro amigo y hermano, Ramón Añez. Tras ser operado de un tumor testicular, Ramón necesita iniciar un ciclo de quimioterapias que es vital para su recuperación. En nuestro pequeño pueblo, la solidaridad es nuestra mayor fortaleza. Con un objetivo de $3,000 en un mes, cada aporte, por pequeño que sea, nos acerca a la meta y le da a Ramón la esperanza y la fuerza para superar esta batalla. ¡Gracias por ser parte de esta cadena de amor y apoyo!
+            </p>
+        </section>
+
+        <!-- How to Help Section -->
+        <section id="how-to-help" class="my-12">
+            <h2 class="text-3xl font-bold text-center mb-8 text-green-800">¿Cómo Puedes Ayudar?</h2>
+            
+            <div class="flex justify-center border-b border-stone-200 mb-6">
+                <button id="tab-donate" class="tab-button py-3 px-6 text-lg transition-colors duration-300 tab-active">Donar</button>
+                <button id="tab-events" class="tab-button py-3 px-6 text-lg transition-colors duration-300 tab-inactive">Eventos</button>
+                <button id="tab-raffles" class="tab-button py-3 px-6 text-lg transition-colors duration-300 tab-inactive">Rifas</button>
+            </div>
+
+            <!-- Content Panels -->
+            <div id="content-donate" class="content-panel">
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- Zelle -->
+                    <div class="bg-white p-6 rounded-lg shadow-md flex flex-col">
+                        <h3 class="text-xl font-semibold mb-2">Zelle</h3>
+                        <p id="zelle-email" class="text-stone-600 mb-4 flex-grow">Loreangelysanez@gmail.com</p>
+                        <button onclick="copyToClipboard('zelle-email')" class="mt-auto w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800 transition-colors">Copiar Email</button>
+                    </div>
+                    <!-- Pago Móvil -->
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold mb-2">Pago Móvil (Banesco)</h3>
+                        <p class="text-stone-600">CI: <span id="pago-ci">15661582</span> <button onclick="copyToClipboard('pago-ci')" class="ml-2 text-green-700 hover:text-green-900">📋</button></p>
+                        <p class="text-stone-600">Tlf: <span id="pago-tlf">04121473441</span> <button onclick="copyToClipboard('pago-tlf')" class="ml-2 text-green-700 hover:text-green-900">📋</button></p>
+                    </div>
+                    <!-- Venmo -->
+                    <div class="bg-white p-6 rounded-lg shadow-md flex flex-col">
+                        <h3 class="text-xl font-semibold mb-2">Venmo</h3>
+                        <p id="venmo-user" class="text-stone-600 mb-4 flex-grow">Ramon-Anez-1</p>
+                        <button onclick="copyToClipboard('venmo-user')" class="mt-auto w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800 transition-colors">Copiar Usuario</button>
+                    </div>
+                </div>
+                 <p class="text-center mt-6 text-stone-500">Por favor, envía la captura de tu aporte al **0424-6654221** para confirmar.</p>
+            </div>
+
+            <div id="content-events" class="content-panel hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.20 PM(1).jpeg-0de3d6bb-728c-42f7-93b1-ef847fb88e36" alt="Arepas Rellenas" class="w-full h-56 object-cover">
+                        <div class="p-6">
+                            <p class="text-sm text-green-700 font-semibold">Sábado 8 y Domingo 9 de Junio</p>
+                            <h3 class="text-2xl font-bold my-2">Venta de Arepas Rellenas</h3>
+                            <p class="text-stone-600 mb-4">¡Combo irresistible de 5 arepas por solo $5! Rellenas de queso, caraotas, perico, carne mechada.</p>
+                            <p class="text-stone-700 font-semibold">Contacto para pedidos: 0424-6654221</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden">
+                        <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.20 PM(3).jpeg-77e86476-aa7a-420a-bcff-fc094055548e" alt="Almuerzo Solidario" class="w-full h-56 object-cover">
+                        <div class="p-6">
+                            <p class="text-sm text-green-700 font-semibold">Sábado 15 y Domingo 16 de Junio</p>
+                            <h3 class="text-2xl font-bold my-2">Almuerzo Solidario</h3>
+                            <p class="text-stone-600 mb-4">Delicioso Chivo en coco, arroz, ensalada yuca. ¡Por solo $5 la porción!</p>
+                            <p class="text-stone-700 font-semibold">Contacto para pedidos: 0424-6654221</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="content-raffles" class="content-panel hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+                        <img src="https://placehold.co/600x400/334155/e2e8f0?text=Chivo+Vivo" alt="Rifa de un Chivo" class="w-full h-56 object-cover">
+                        <div class="p-6 flex-grow flex flex-col">
+                            <h3 class="text-2xl font-bold mb-2">Rifa 1: ¡Gana un Chivo!</h3>
+                            <p class="text-stone-600 mb-4 flex-grow">Por solo <span class="font-bold text-green-700 text-lg">$5</span>, puedes ganar un chivo de 20kg. ¡Una gran oportunidad para colaborar!</p>
+                            <p class="text-sm text-stone-500">Venta: Del 5 al 14 de Junio</p>
+                            <p class="text-sm text-stone-500">Sorteo: Sábado 15 de Junio</p>
+                             <button class="mt-4 w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800 transition-colors">Comprar número (0424-6654221)</button>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow-lg overflow-hidden flex flex-col">
+                        <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.20 PM.jpeg-e6129706-ddef-469b-9580-d4d1dcc93406" alt="Mega Rifa" class="w-full h-56 object-cover">
+                        <div class="p-6 flex-grow flex flex-col">
+                            <h3 class="text-2xl font-bold mb-2">Mega Rifa: ¡Moto o TV!</h3>
+                            <p class="text-stone-600 mb-4 flex-grow">Participa por <span class="font-bold text-green-700 text-lg">$5</span> y podrás ganar una motocicleta o un televisor. ¡El premio mayor por la mejor causa!</p>
+                            <p class="text-sm text-stone-500">Venta: Del 15 al 28 de Junio</p>
+                            <p class="text-sm text-stone-500">Sorteo: Sábado 29 de Junio</p>
+                            <button class="mt-4 w-full bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800 transition-colors">Comprar número (0424-6654221)</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Projected Budget Section -->
+        <section id="projected-budget" class="my-12 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6 text-green-800">Presupuesto Proyectado de la Campaña</h2>
+            <p class="text-stone-700 text-center max-w-3xl mx-auto leading-relaxed mb-8">
+                Aquí te presentamos una estimación de cómo esperamos alcanzar nuestra meta de $3,000 para las quimioterapias de Ramón, a través de las diferentes actividades de recaudación.
+            </p>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left table-auto">
+                    <thead>
+                        <tr class="bg-green-100 text-green-800">
+                            <th class="py-2 px-4 rounded-tl-lg">Actividad de Recaudación</th>
+                            <th class="py-2 px-4">Cantidad Proyectada</th>
+                            <th class="py-2 px-4">Ingreso Unitario</th>
+                            <th class="py-2 px-4 rounded-tr-lg text-right">Total Proyectado</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr class="border-b border-stone-200">
+                            <td class="py-2 px-4">Arepas Solidarias</td>
+                            <td class="py-2 px-4">200 combos</td>
+                            <td class="py-2 px-4">$5 / combo</td>
+                            <td class="py-2 px-4 text-right">$1,000</td>
+                        </tr>
+                        <tr class="border-b border-stone-200">
+                            <td class="py-2 px-4">Almuerzo Solidario</td>
+                            <td class="py-2 px-4">100 platos</td>
+                            <td class="py-2 px-4">$5 / plato</td>
+                            <td class="py-2 px-4 text-right">$500</td>
+                        </tr>
+                        <tr class="border-b border-stone-200">
+                            <td class="py-2 px-4">Rifas (2 x 100 números)</td>
+                            <td class="py-2 px-4">200 números</td>
+                            <td class="py-2 px-4">$5 / número</td>
+                            <td class="py-2 px-4 text-right">$1,000</td>
+                        </tr>
+                        <tr>
+                            <td class="py-2 px-4">Donaciones Espontáneas</td>
+                            <td class="py-2 px-4">Variable</td>
+                            <td class="py-2 px-4">Variable</td>
+                            <td class="py-2 px-4 text-right">$500</td>
+                        </tr>
+                    </tbody>
+                    <tfoot>
+                        <tr class="bg-green-700 text-white font-bold">
+                            <td class="py-2 px-4 rounded-bl-lg" colspan="3">TOTAL PROYECTADO</td>
+                            <td class="py-2 px-4 rounded-br-lg text-right">$3,000</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </section>
+
+
+        <!-- Cronograma Section -->
+        <section id="cronograma" class="my-12 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6 text-green-800">Cronograma de la Campaña</h2>
+            <p class="text-stone-700 text-center max-w-3xl mx-auto leading-relaxed mb-8">
+                Aquí puedes ver un desglose de las actividades clave y fechas importantes para nuestra campaña de un mes. ¡Tu participación es vital en cada etapa!
+            </p>
+            <div class="relative pl-6 border-l-2 border-stone-200">
+                <div class="mb-8 relative timeline-item">
+                    <h3 class="text-xl font-semibold text-green-800 mb-2">Semana 1: Lanzamiento y Arepas (05 al 11 de Junio)</h3>
+                    <ul class="list-disc list-inside text-stone-600 space-y-1">
+                        <li>Lanzamiento de la Campaña General y difusión intensiva.</li>
+                        <li>Inicio de venta de números para la Rifa 1 (Chivo, $5).</li>
+                        <li>**Sábado 8 y Domingo 9 de Junio:** Venta de Arepas Solidarias ($5 combo).</li>
+                    </ul>
+                </div>
+                <div class="mb-8 relative timeline-item">
+                    <h3 class="text-xl font-semibold text-green-800 mb-2">Semana 2: Almuerzo Solidario y Sorteo Rifa 1 (12 al 18 de Junio)</h3>
+                    <ul class="list-disc list-inside text-stone-600 space-y-1">
+                        <li>Continuación de la venta de números para la Rifa 1 (Chivo, $5).</li>
+                        <li>**Sábado 15 y Domingo 16 de Junio:** Venta de Almuerzo Solidario (Chivo en coco, $5).</li>
+                        <li>**Sábado 15 de Junio:** Sorteo de la Rifa 1 (Chivo).</li>
+                    </ul>
+                </div>
+                <div class="mb-8 relative timeline-item">
+                    <h3 class="text-xl font-semibold text-green-800 mb-2">Semana 3: Mega Rifa y Más (19 al 25 de Junio)</h3>
+                    <ul class="list-disc list-inside text-stone-600 space-y-1">
+                        <li>Lanzamiento y venta de números para la Mega Rifa (Moto o TV, $5).</li>
+                        <li>Posible organización de actividades adicionales (Bingo Benéfico, venta de dulces).</li>
+                    </ul>
+                </div>
+                <div class="relative timeline-item">
+                    <h3 class="text-xl font-semibold text-green-800 mb-2">Semana 4: Cierre y Sorteo Mega Rifa (26 de Junio al 04 de Julio)</h3>
+                    <ul class="list-disc list-inside text-stone-600 space-y-1">
+                        <li>Últimos días de venta intensiva para la Mega Rifa.</li>
+                        <li>**Sábado 29 de Junio:** Sorteo de la Mega Rifa (Moto o TV).</li>
+                        <li>Cierre oficial de la campaña y mensaje de agradecimiento.</li>
+                    </ul>
+                </div>
+            </div>
+        </section>
+
+        <!-- Campaign Assistant Section -->
+        <section id="campaign-assistant" class="my-12 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6 text-green-800">Asistente de Campaña ✨</h2>
+            <p class="text-stone-700 text-center max-w-3xl mx-auto leading-relaxed mb-8">
+                Aquí puedes usar la inteligencia artificial de Gemini para generar mensajes de apoyo o ideas para difundir nuestra campaña.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <!-- Message Generator -->
+                <div class="flex flex-col bg-stone-50 p-6 rounded-lg shadow-inner">
+                    <h3 class="text-xl font-semibold mb-4 text-green-800">Generar Mensaje de Apoyo para Ramón ✨</h3>
+                    <textarea id="support-message-input" class="w-full p-3 border border-stone-300 rounded-lg mb-4 focus:ring-green-500 focus:border-green-500 resize-y" rows="4" placeholder="Escribe tu idea o lo que quieres transmitir (ej. 'Mensaje corto de ánimo', 'Carta de apoyo para la familia')."></textarea>
+                    <button id="generate-support-message" class="bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800 transition-colors flex items-center justify-center">
+                        <span id="support-message-loading" class="hidden loading-spinner"></span>
+                        Generar Mensaje
+                    </button>
+                    <div id="support-message-output" class="mt-4 p-4 bg-green-50 text-green-900 rounded-lg border border-green-200 hidden"></div>
+                </div>
+
+                <!-- Diffusion Ideas Generator -->
+                <div class="flex flex-col bg-stone-50 p-6 rounded-lg shadow-inner">
+                    <h3 class="text-xl font-semibold mb-4 text-green-800">Generar Ideas para Difusión ✨</h3>
+                    <textarea id="diffusion-idea-input" class="w-full p-3 border border-stone-300 rounded-lg mb-4 focus:ring-green-500 focus:border-green-500 resize-y" rows="4" placeholder="Describe la idea que necesitas (ej. 'Slogan para vender arepas', 'Post de Facebook para la rifa del chivo', 'Mensaje de WhatsApp para pedir donaciones')."></textarea>
+                    <button id="generate-diffusion-idea" class="bg-green-700 text-white font-bold py-2 px-4 rounded-lg hover:bg-green-800 transition-colors flex items-center justify-center">
+                        <span id="diffusion-idea-loading" class="hidden loading-spinner"></span>
+                        Generar Idea
+                    </button>
+                    <div id="diffusion-idea-output" class="mt-4 p-4 bg-green-50 text-green-900 rounded-lg border border-green-200 hidden"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Progress Visualization -->
+        <section id="progress" class="my-12 p-6 bg-white rounded-lg shadow-md">
+            <h2 class="text-2xl font-bold text-center mb-6 text-green-800">Nuestro Progreso</h2>
+            <div class="chart-container relative mx-auto" style="max-width: 400px; height: 400px;">
+                <canvas id="progressChart"></canvas>
+            </div>
+        </section>
+
+        <!-- Gallery -->
+        <section id="gallery" class="my-12">
+            <h2 class="text-2xl font-bold text-center mb-6 text-green-800">Momentos de Unión</h2>
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.19 PM.jpeg-e4565922-9468-4b24-b307-603aceeb55ad" class="rounded-lg shadow-md aspect-square object-cover w-full h-full" alt="Ramón Añez">
+                <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.19 PM(1).jpg-5ed94df5-90d7-4fd5-87b8-a9102839ef18" class="rounded-lg shadow-md aspect-square object-cover w-full h-full" alt="Ramón Añez">
+                <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.18 PM.jpeg-150100db-5131-4a68-b651-87f4f39613a0" class="rounded-lg shadow-md aspect-square object-cover w-full h-full" alt="Campaña de recaudación">
+                <img src="uploaded:WhatsApp Image 2025-06-05 at 3.16.21 PM.jpeg-d7222f24-8382-49e6-a69c-6bb4f6b238c7" class="rounded-lg shadow-md aspect-square object-cover w-full h-full" alt="Flyer de la campaña">
+            </div>
+        </section>
+
+        <!-- Footer / Share -->
+        <footer class="text-center py-8 border-t border-stone-200 mt-12">
+             <h3 class="text-2xl font-bold text-green-800 mb-4">¡Gracias por tu apoyo!</h3>
+             <p class="text-stone-600 mb-6">Cada donación, cada plato comprado y cada rifa vendida es un paso más hacia la recuperación de Ramón.<br>Ayúdanos a difundir la campaña.</p>
+             <div class="flex justify-center space-x-4">
+                 <a href="https://www.facebook.com/sharer/sharer.php?u=YOUR_URL_HERE" target="_blank" class="bg-blue-600 text-white font-bold py-2 px-6 rounded-lg hover:bg-blue-700 transition-colors">Compartir en Facebook</a>
+                 <a href="whatsapp://send?text=¡Ayudemos a Ramón! Conoce la campaña y cómo puedes apoyar: YOUR_URL_HERE" data-action="share/whatsapp/share" class="bg-green-500 text-white font-bold py-2 px-6 rounded-lg hover:bg-green-600 transition-colors">Compartir en WhatsApp</a>
+             </div>
+        </footer>
+         <div id="copy-feedback" class="fixed bottom-5 right-5 bg-green-800 text-white py-2 px-4 rounded-lg shadow-lg opacity-0 transition-opacity duration-300">¡Copiado!</div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const campaignData = {
+                goal: 3000,
+                current: 545, 
+                events: [],
+                raffles: [],
+            };
+
+            const progressBar = document.getElementById('progress-bar');
+            const currentAmountText = document.getElementById('current-amount-text');
+            const goalAmountText = document.getElementById('goal-amount-text');
+            const progressChartCtx = document.getElementById('progressChart').getContext('2d');
+            
+            const tabs = document.querySelectorAll('.tab-button');
+            const contentPanels = document.querySelectorAll('.content-panel');
+
+            // LLM assistant elements
+            const supportMessageInput = document.getElementById('support-message-input');
+            const generateSupportMessageBtn = document.getElementById('generate-support-message');
+            const supportMessageLoading = document.getElementById('support-message-loading');
+            const supportMessageOutput = document.getElementById('support-message-output');
+
+            const diffusionIdeaInput = document.getElementById('diffusion-idea-input');
+            const generateDiffusionIdeaBtn = document.getElementById('generate-diffusion-idea');
+            const diffusionIdeaLoading = document.getElementById('diffusion-idea-loading');
+            const diffusionIdeaOutput = document.getElementById('diffusion-idea-output');
+
+
+            let progressChart;
+
+            function updateProgress() {
+                const percentage = (campaignData.current / campaignData.goal) * 100;
+                setTimeout(() => {
+                    progressBar.style.width = percentage > 100 ? '100%' : percentage + '%';
+                }, 100);
+                currentAmountText.textContent = `$${campaignData.current.toLocaleString()}`;
+                goalAmountText.textContent = `$${campaignData.goal.toLocaleString()}`;
+            }
+
+            function renderChart() {
+                const data = {
+                    labels: ['Recaudado', 'Faltante'],
+                    datasets: [{
+                        data: [campaignData.current, Math.max(0, campaignData.goal - campaignData.current)],
+                        backgroundColor: ['#16a34a', '#e5e7eb'],
+                        borderColor: '#f9fafb',
+                        borderWidth: 4,
+                        hoverOffset: 4,
+                    }]
+                };
+
+                if(progressChart) {
+                    progressChart.destroy();
+                }
+
+                progressChart = new Chart(progressChartCtx, {
+                    type: 'doughnut',
+                    data: data,
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        cutout: '70%',
+                        plugins: {
+                            legend: {
+                                display: false
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += new Intl.NumberFormat('es-VE', { style: 'currency', currency: 'USD' }).format(context.parsed);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        animation: {
+                            animateScale: true,
+                            animateRotate: true
+                        }
+                    }
+                });
+            }
+            
+            function handleTabClick(event) {
+                const clickedTab = event.currentTarget;
+                const targetContentId = `content-${clickedTab.id.split('-')[1]}`;
+
+                tabs.forEach(tab => {
+                    tab.classList.remove('tab-active');
+                    tab.classList.add('tab-inactive');
+                });
+                clickedTab.classList.add('tab-active');
+                clickedTab.classList.remove('tab-inactive');
+
+                contentPanels.forEach(panel => {
+                    if (panel.id === targetContentId) {
+                        panel.classList.remove('hidden');
+                    } else {
+                        panel.classList.add('hidden');
+                    }
+                });
+            }
+
+            // --- LLM API Call Function ---
+            async function callGeminiAPI(prompt, outputElement, loadingElement) {
+                outputElement.classList.add('hidden');
+                outputElement.textContent = '';
+                loadingElement.classList.remove('hidden');
+
+                let chatHistory = [];
+                chatHistory.push({ role: "user", parts: [{ text: prompt }] });
+                const payload = { contents: chatHistory };
+                const apiKey = ""; 
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    const result = await response.json();
+
+                    if (result.candidates && result.candidates.length > 0 &&
+                        result.candidates[0].content && result.candidates[0].content.parts &&
+                        result.candidates[0].content.parts.length > 0) {
+                        const text = result.candidates[0].content.parts[0].text;
+                        outputElement.textContent = text;
+                        outputElement.classList.remove('hidden');
+                    } else {
+                        outputElement.textContent = 'Lo siento, no pude generar una respuesta. Inténtalo de nuevo.';
+                        outputElement.classList.remove('hidden');
+                    }
+                } catch (error) {
+                    console.error('Error al llamar a la API de Gemini:', error);
+                    outputElement.textContent = 'Hubo un error al conectar con el asistente. Inténtalo más tarde.';
+                    outputElement.classList.remove('hidden');
+                } finally {
+                    loadingElement.classList.add('hidden');
+                }
+            }
+
+            // --- Event Listeners for LLM Buttons ---
+            generateSupportMessageBtn.addEventListener('click', () => {
+                const prompt = `Genera un mensaje de apoyo sincero y breve para una persona llamada Ramón, que está luchando contra el cáncer y necesita quimioterapias. Enfócate en la fuerza, la esperanza y el apoyo de su comunidad. El mensaje debe ser en español. La comunidad está unida para ayudarle a recaudar fondos. El mensaje es para ser compartido en redes sociales o WhatsApp. El mensaje debe ser optimista y motivador. Aquí hay algunos ejemplos de lo que la comunidad ha dicho antes: "Cada granito cuenta para salvar una vida", "Ramón tiene cáncer, con tu apoyo puede vencerlo". El mensaje debe ser no más de 80 palabras. User input: "${supportMessageInput.value}"`;
+                callGeminiAPI(prompt, supportMessageOutput, supportMessageLoading);
+            });
+
+            generateDiffusionIdeaBtn.addEventListener('click', () => {
+                const prompt = `Genera una idea creativa y persuasiva para difundir una campaña de recaudación de fondos para Ramón, quien necesita quimioterapias. Considera que la campaña incluye venta de arepas ($5 combo), almuerzo solidario ($5 plato de chivo en coco), y rifas ($5 por número para chivo, moto o TV). El objetivo es motivar a la comunidad a participar y donar $3,000 en un mes. La audiencia está en un pueblo pequeño de Venezuela y la difusión es por WhatsApp, Facebook y volantes. Proporciona un eslogan pegadizo y un breve texto (máximo 100 palabras). User input: "${diffusionIdeaInput.value}"`;
+                callGeminiAPI(prompt, diffusionIdeaOutput, diffusionIdeaLoading);
+            });
+
+
+            // --- INITIALIZATION ---
+            updateProgress();
+            renderChart();
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', handleTabClick);
+            });
+        });
+
+        // --- GLOBAL FUNCTIONS (for copy to clipboard) ---
+        function copyToClipboard(elementId) {
+            const textToCopy = document.getElementById(elementId).textContent;
+            const feedbackEl = document.getElementById('copy-feedback');
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    showCopyFeedback();
+                }).catch(err => {
+                    console.error('Failed to copy with Clipboard API, using fallback:', err);
+                    fallbackCopyTextToClipboard(textToCopy);
+                });
+            } else {
+                fallbackCopyTextToClipboard(textToCopy);
+            }
+        }
+
+        function fallbackCopyTextToClipboard(text) {
+             const textArea = document.createElement("textarea");
+            textArea.value = text;
+            textArea.style.top = "0";
+            textArea.style.left = "0";
+            textArea.style.position = "fixed";
+            document.body.appendChild(textArea);
+            textArea.focus();
+            textArea.select();
+
+            try {
+                const successful = document.execCommand('copy');
+                if (successful) showCopyFeedback();
+            } catch (err) {
+                console.error('Fallback: Oops, unable to copy', err);
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function showCopyFeedback() {
+            const feedbackEl = document.getElementById('copy-feedback');
+            feedbackEl.classList.remove('opacity-0');
+            setTimeout(() => {
+                feedbackEl.classList.add('opacity-0');
+            }, 2000);
+        }
+    </script>
+</body>
+</html>
